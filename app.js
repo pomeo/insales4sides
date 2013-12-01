@@ -5,6 +5,7 @@
 
 var express = require('express')
   , http = require('http')
+  , rest = require('restler')
   , path = require('path');
 
 var app = express();
@@ -24,7 +25,7 @@ if ('development' == app.get('env')) {
 }
 
 app.get('/', function(req, res){
-  
+  res.send('ok');
 });
 
 http.createServer(app).listen(app.get('port'), function(){
