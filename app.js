@@ -6,6 +6,7 @@
 var express = require('express')
   , http = require('http')
   , rest = require('restler')
+  , parser = require('libxml-to-js')
   , path = require('path');
 
 var app = express();

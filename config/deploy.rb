@@ -16,12 +16,12 @@ set :scm,         :git
 set :copy_exclude,["/.git/", "/.gitignore", "/Capfile", "/config/", "/config.yaml", "/Rakefile", "Rules", "/tmp/", "/mkmf.log"]
 
 set :supervisord_pidfile, "/var/run/supervisord.pid"
-set :supervisord_start_group, "insales4sides"
-set :supervisord_stop_group, "insales4sides"
+set :supervisord_start_group, "4sides"
+set :supervisord_stop_group, "4sides"
 #========================
 #ROLES
 #========================
-role :app,        "4sides"
+role :app,        "#{application}"
 set :deploy_to,   "/var/www/insales/4sides/www"
 set :deploy_user, "pomeo"
 set :deploy_group,"pomeo"
