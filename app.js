@@ -42,7 +42,7 @@ app.get('/', function(req, res){
   console.log('Регион : ' + req.query.region + ' Город : ' + req.query.city + ' Вес : ' + req.query.weight);
   //var url = 'http://4sides.ru/common/api/calculate.php?action=calculate_rf&from=' + req.query + '&to=' + req.query + '&weight=' + req.query + '&obl=' + req.query;
   res.setHeader('Content-Type', 'application/json');
-  res.send(req.query.callback + '({delivery_price: 100})');
+  res.send(req.query.callback + '({error: "Доставка в данный регион не возможна"})');
 });
 
 http.createServer(app).listen(app.get('port'), function(){
