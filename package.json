@@ -9,6 +9,7 @@
     "express": "3.3.4",
     "jade": "*",
     "restler": "*",
-    "xml2js": "*"
+    "xml2js": "*",
+    "async": "*"
   }
 }
