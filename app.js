@@ -77,6 +77,8 @@ var f = function(res, req, region, city, fin, data) {
                 console.log('Error: ' + kladr_city.message);
                 res.setHeader('Content-Type', 'application/json');
                 res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
+              } else if (typeof kladr_city['result'][0] === 'undefined') {
+                callback();
               } else {
                 if (item.okato == kladr_city['result'][0]['okato']) {
                   fin.obl = 0;
