@@ -31,6 +31,7 @@ if ('development' == app.get('env')) {
   app.use(express.errorHandler());
 }
 
+// основная функция для поиска городов и регионов
 var f = function(res, req, region, city, fin, data) {
   var jobj = JSON.parse(data);
   var we = req.query.weight;
@@ -38,9 +39,11 @@ var f = function(res, req, region, city, fin, data) {
   if (parseFloat(req.query.weight) == 0) {
     we = 0.1;
   }
+  // если вдруг вес будет больше максимального веса службы доставки
   if (parseFloat(req.query.weight) > parseFloat(jobj[1][jobj[1].length-1])) {
     fin.w,we = jobj[1][jobj[1].length-1];
   }
+  // возвращаем +1 вес от текущего в шкале службы доставки
   async.whilst(function () {
     return parseFloat(jobj[1][n]) <= we;
   }, function (next) {
@@ -54,6 +57,7 @@ var f = function(res, req, region, city, fin, data) {
   }, function (err) {
     // All things are done!
   });
+  // делаем запрос в кладр для поиска региона, нужен номер окато
   rest.get('http://kladr-api.ru/api.php?query='+ region +'&contentType=region&withParent=1&limit=1&token=' + kladr_token + '&key=' + kladr_key).once('complete', function(kladr) {
     if (kladr instanceof Error) {
       console.log('Error: ' + kladr.message);
@@ -65,13 +69,16 @@ var f = function(res, req, region, city, fin, data) {
         res.setHeader('Content-Type', 'application/json');
         res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
       } else {
+        // идём по массиву данных из output.json и сравниваем есть ли нужный регион
         async.eachSeries(jobj[0], function(item, callback) {
+          // отправная точка питер и id питера берём из файла, на случай что он может когда-нибудь поменяться
           if (item.name == 'санкт-петербург') {
             fin.from = item.id;
           }
           if ((item.reg_okato == kladr['result'][0]['okato'])||(item.okato == kladr['result'][0]['okato'])) {
             console.log('Регион опознан: ' + kladr['result'][0]['name']);
             fin.id = item.id;
+            // ищем город в кладре, также нужен окато. Город нужен чтобы понять куда доставлять, в областной центр или область
             rest.get('http://kladr-api.ru/api.php?query='+ city +'&contentType=city&withParent=1&limit=1&token=' + kladr_token + '&key=' + kladr_key).once('complete', function(kladr_city) {
               if (kladr_city instanceof Error) {
                 console.log('Error: ' + kladr_city.message);
@@ -95,6 +102,7 @@ var f = function(res, req, region, city, fin, data) {
             res.setHeader('Content-Type', 'application/json');
             res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
           } else {
+            // делаем запрос к службе доставке за тарифом, и возвращаем в insales данные в заывисимости от ситуации
             var url = 'http://4sides.ru/common/api/calculate.php?action=calculate_rf&from=' + fin.from + '&to=' + fin.id + '&weight=' + fin.w + '&obl=' + fin.obl;
             console.log(url);
             rest.get(url).once('complete', function(sides) {
@@ -124,7 +132,7 @@ var f = function(res, req, region, city, fin, data) {
   });
 };
 
-
+// здесь мы создаём файл с данными, список городов службы доставки с номерами окато и регионами в которых они находятся. Номера окато берутся из кладра.
 app.get('/update', function(req, res){
   rest.get('http://www.4sides.ru/common/api/calculate.php?action=get_data').once('complete', function(result) {
     if (result instanceof Error) {
@@ -200,6 +208,7 @@ app.get('/update', function(req, res){
   });
 });
 
+// сюда прилетает get запрос от insales, делаем магию и отвечаем.
 app.get('/', function(req, res){
   var region = req.query.region.replace(/^[а-яА-Я]{1,10}\s/g, '').toLowerCase();
   var city = req.query.city.toLowerCase();
@@ -210,6 +219,7 @@ app.get('/', function(req, res){
     w: 0
   });
   console.log('Регион : ' + req.query.region + '\nГород : ' + req.query.city + '\nВес : ' + req.query.weight);
+  // это на случай если вдруг будет почтовый индекс, тогда опираемся на индекс. Если его не будет, работаем опираясь на регион и город.
   if (req.query.zip != 0) {
     fs.readFile(__dirname + '/public/output.json', 'utf8', function (err, data) {
       if (err) throw err;
