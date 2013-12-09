@@ -107,7 +107,7 @@ var f = function(res, req, region, city, fin, data) {
                   if (typeof data['result']['tariff'] === 'undefined') {
                     res.setHeader('Content-Type', 'application/json');
                     res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
-                  } else if ((data['result']['tariff'][0] != 0)||(data['result']['tariff'][0] != '')) {
+                  } else if ((data['result']['tariff'][0] != 0)&&(data['result']['tariff'][0] != '')) {
                     res.setHeader('Content-Type', 'application/json');
                     res.send(req.query.callback + '({delivery_price: ' + data['result']['tariff'][0] + '})');
                   } else {
