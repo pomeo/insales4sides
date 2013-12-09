@@ -69,7 +69,7 @@ var f = function(res, req, region, city, fin, data) {
           if (item.name == 'санкт-петербург') {
             fin.from = item.id;
           }
-          if (item.reg_okato == kladr['result'][0]['okato']) {
+          if ((item.reg_okato == kladr['result'][0]['okato'])||(item.okato == kladr['result'][0]['okato'])) {
             console.log('Регион опознан: ' + kladr['result'][0]['name']);
             fin.id = item.id;
             rest.get('http://kladr-api.ru/api.php?query='+ city +'&contentType=city&withParent=1&limit=1&token=' + kladr_token + '&key=' + kladr_key).once('complete', function(kladr_city) {
