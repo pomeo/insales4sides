@@ -33,57 +33,94 @@ if ('development' == app.get('env')) {
 
 var f = function(res, req, region, city, fin, data) {
   var jobj = JSON.parse(data);
-  jobj[1].forEach(function (w) {
-    if (w <= req.query.weight) {
-      fin.w = w;
+  var we = req.query.weight;
+  var n = 0;
+  if (parseFloat(req.query.weight) == 0) {
+    we = 0.1;
+  }
+  if (parseFloat(req.query.weight) > parseFloat(jobj[1][jobj[1].length-1])) {
+    fin.w,we = jobj[1][jobj[1].length-1];
+  }
+  async.whilst(function () {
+    return parseFloat(jobj[1][n]) <= we;
+  }, function (next) {
+    if (parseFloat(jobj[1][n]) == parseFloat(jobj[1][jobj[1].length-1])) {
+      fin.w = jobj[1][n];
+    } else {
+      fin.w = jobj[1][n+1];
     }
+    n++;
+    next();
+  }, function (err) {
+    // All things are done!
   });
   rest.get('http://kladr-api.ru/api.php?query='+ region +'&contentType=region&withParent=1&limit=1&token=' + kladr_token + '&key=' + kladr_key).once('complete', function(kladr) {
-    if (kladr['result'][0] == '') {
-      console.log('Не опознан регион: ' + region);
+    if (kladr instanceof Error) {
+      console.log('Error: ' + kladr.message);
       res.setHeader('Content-Type', 'application/json');
       res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
     } else {
-      async.eachSeries(jobj[0], function(item, callback) {
-        if (item.name == 'санкт-петербург') {
-          fin.from = item.id;
-        }
-        if (item.reg_okato == kladr['result'][0]['okato']) {
-          console.log('Регион опознан: ' + kladr['result'][0]['name']);
-          fin.id = item.id;
-          rest.get('http://kladr-api.ru/api.php?query='+ city +'&contentType=city&withParent=1&limit=1&token=' + kladr_token + '&key=' + kladr_key).once('complete', function(kladr_city) {
-            if (item.okato == kladr_city['result'][0]['okato']) {
-              fin.obl = 0;
-            }
-            callback();
-          });
-        } else {
-          callback();
-        }
-      }, function(err) {
-        if (err) {
-          console.log(err);
-          res.setHeader('Content-Type', 'application/json');
-          res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
-        } else {
-          var url = 'http://4sides.ru/common/api/calculate.php?action=calculate_rf&from=' + fin.from + '&to=' + fin.id + '&weight=1&obl=' + fin.obl;
-          console.log(url);
-          rest.get(url).once('complete', function(sides) {
-            rest.parsers.xml(sides, function(err, data) {
-              if ((data['result']['tariff'][0] != 0)||(data['result']['tariff'][0] != '')) {
-                res.setHeader('Content-Type', 'application/json');
-                res.send(req.query.callback + '({error: \'Тестируется\', delivery_price: ' + data['result']['tariff'][0] + '})');
-              } else {
+      if (kladr['result'][0] == '') {
+        console.log('Не опознан регион: ' + region);
+        res.setHeader('Content-Type', 'application/json');
+        res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
+      } else {
+        async.eachSeries(jobj[0], function(item, callback) {
+          if (item.name == 'санкт-петербург') {
+            fin.from = item.id;
+          }
+          if (item.reg_okato == kladr['result'][0]['okato']) {
+            console.log('Регион опознан: ' + kladr['result'][0]['name']);
+            fin.id = item.id;
+            rest.get('http://kladr-api.ru/api.php?query='+ city +'&contentType=city&withParent=1&limit=1&token=' + kladr_token + '&key=' + kladr_key).once('complete', function(kladr_city) {
+              if (kladr_city instanceof Error) {
+                console.log('Error: ' + kladr_city.message);
                 res.setHeader('Content-Type', 'application/json');
                 res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
+              } else {
+                if (item.okato == kladr_city['result'][0]['okato']) {
+                  fin.obl = 0;
+                }
+                callback();
               }
             });
-          });
-        }
-      });
+          } else {
+            callback();
+          }
+        }, function(err) {
+          if (err) {
+            console.log(err);
+            res.setHeader('Content-Type', 'application/json');
+            res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
+          } else {
+            var url = 'http://4sides.ru/common/api/calculate.php?action=calculate_rf&from=' + fin.from + '&to=' + fin.id + '&weight=' + fin.w + '&obl=' + fin.obl;
+            console.log(url);
+            rest.get(url).once('complete', function(sides) {
+              if (sides instanceof Error) {
+                console.log('Error: ' + sides.message);
+                res.setHeader('Content-Type', 'application/json');
+                res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
+              } else {
+                rest.parsers.xml(sides, function(err, data) {
+                  if (typeof data['result']['tariff'] === 'undefined') {
+                    res.setHeader('Content-Type', 'application/json');
+                    res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
+                  } else if ((data['result']['tariff'][0] != 0)||(data['result']['tariff'][0] != '')) {
+                    res.setHeader('Content-Type', 'application/json');
+                    res.send(req.query.callback + '({delivery_price: ' + data['result']['tariff'][0] + '})');
+                  } else {
+                    res.setHeader('Content-Type', 'application/json');
+                    res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
     }
   });
-}
+};
 
 
 app.get('/update', function(req, res){
