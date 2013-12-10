@@ -36,7 +36,7 @@ var f = function(res, req, region, city, fin, data) {
   var jobj = JSON.parse(data);
   var we = req.query.weight;
   var n = 0;
-  if (parseFloat(req.query.weight) == 0) {
+  if (parseFloat(req.query.weight) < 0.1) {
     we = 0.1;
   }
   // если вдруг вес будет больше максимального веса службы доставки
