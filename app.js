@@ -10,6 +10,7 @@ var express = require('express')
   , util = require('util')
   , fs = require('fs')
   , async = require('async')
+  , csv = require('csv')
   , path = require('path');
 
 var app = express();
@@ -32,31 +33,39 @@ if ('development' == app.get('env')) {
 }
 
 // основная функция для поиска городов и регионов
-var f = function(res, req, region, city, fin, data) {
+var f = function(res, req, region, city, data) {
   var jobj = JSON.parse(data);
   var we = req.query.weight;
   var n = 0;
+  var weightList = [];
+  var weightEqual = 0.1;
+  var price = '';
+  for (var weight in jobj[0].weight) {
+    weightList.push(parseFloat(weight.replace(',', '.')));
+  }
+  weightList = weightList.sort(function(a, b){ return a - b });
   if (parseFloat(req.query.weight) < 0.1) {
     we = 0.1;
   }
   // если вдруг вес будет больше максимального веса службы доставки
-  if (parseFloat(req.query.weight) > parseFloat(jobj[1][jobj[1].length-1])) {
-    fin.w,we = jobj[1][jobj[1].length-1];
+  if (parseFloat(req.query.weight) > weightList[weightList.length-1]) {
+    we = weightList[weightList.length-1];
   }
   // возвращаем +1 вес от текущего в шкале службы доставки
   async.whilst(function () {
-    return parseFloat(jobj[1][n]) <= we;
+    return weightList[n] <= we;
   }, function (next) {
-    if (parseFloat(jobj[1][n]) == parseFloat(jobj[1][jobj[1].length-1])) {
-      fin.w = jobj[1][n];
+    if (weightList[n] == weightList[weightList.length-1]) {
+      weightEqual = weightList[n];
     } else {
-      fin.w = jobj[1][n+1];
+      weightEqual = weightList[n+1];
     }
     n++;
     next();
   }, function (err) {
     // All things are done!
-  });
+     });
+  console.log("Округлённый вес: " + weightEqual);
   // делаем запрос в кладр для поиска региона, нужен номер окато
   rest.get('http://kladr-api.ru/api.php?query='+ region +'&contentType=region&withParent=1&limit=1&token=' + kladr_token + '&key=' + kladr_key).once('complete', function(kladr) {
     if (kladr instanceof Error) {
@@ -70,14 +79,10 @@ var f = function(res, req, region, city, fin, data) {
         res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
       } else {
         // идём по массиву данных из output.json и сравниваем есть ли нужный регион
-        async.eachSeries(jobj[0], function(item, callback) {
-          // отправная точка питер и id питера берём из файла, на случай что он может когда-нибудь поменяться
-          if (item.name == 'санкт-петербург') {
-            fin.from = item.id;
-          }
+        async.eachSeries(jobj, function(item, callback) {
           if ((item.reg_okato == kladr['result'][0]['okato'])||(item.okato == kladr['result'][0]['okato'])) {
             console.log('Регион опознан: ' + kladr['result'][0]['name']);
-            fin.id = item.id;
+            price = item.weight[weightEqual.toString().replace('.', ',')][1];
             // ищем город в кладре, также нужен окато. Город нужен чтобы понять куда доставлять, в областной центр или область
             rest.get('http://kladr-api.ru/api.php?query='+ city +'&contentType=city&withParent=1&limit=1&token=' + kladr_token + '&key=' + kladr_key).once('complete', function(kladr_city) {
               if (kladr_city instanceof Error) {
@@ -88,7 +93,7 @@ var f = function(res, req, region, city, fin, data) {
                 callback();
               } else {
                 if (item.okato == kladr_city['result'][0]['okato']) {
-                  fin.obl = 0;
+                  price = item.weight[weightEqual.toString().replace('.', ',')][0];
                 }
                 callback();
               }
@@ -102,29 +107,9 @@ var f = function(res, req, region, city, fin, data) {
             res.setHeader('Content-Type', 'application/json');
             res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
           } else {
-            // делаем запрос к службе доставке за тарифом, и возвращаем в insales данные в заывисимости от ситуации
-            var url = 'http://4sides.ru/common/api/calculate.php?action=calculate_rf&from=' + fin.from + '&to=' + fin.id + '&weight=' + fin.w + '&obl=' + fin.obl;
-            console.log(url);
-            rest.get(url).once('complete', function(sides) {
-              if (sides instanceof Error) {
-                console.log('Error: ' + sides.message);
-                res.setHeader('Content-Type', 'application/json');
-                res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
-              } else {
-                rest.parsers.xml(sides, function(err, data) {
-                  if (typeof data['result']['tariff'] === 'undefined') {
-                    res.setHeader('Content-Type', 'application/json');
-                    res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
-                  } else if ((data['result']['tariff'][0] != 0)&&(data['result']['tariff'][0] != '')) {
-                    res.setHeader('Content-Type', 'application/json');
-                    res.send(req.query.callback + '({delivery_price: ' + data['result']['tariff'][0] + '})');
-                  } else {
-                    res.setHeader('Content-Type', 'application/json');
-                    res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
-                  }
-                });
-              }
-            });
+            // возвращаем цену
+            res.setHeader('Content-Type', 'application/json');
+            res.send(req.query.callback + '({delivery_price: ' + price + '})');
           }
         });
       }
@@ -134,77 +119,124 @@ var f = function(res, req, region, city, fin, data) {
 
 // здесь мы создаём файл с данными, список городов службы доставки с номерами окато и регионами в которых они находятся. Номера окато берутся из кладра.
 app.get('/update', function(req, res){
-  rest.get('http://www.4sides.ru/common/api/calculate.php?action=get_data').once('complete', function(result) {
-    if (result instanceof Error) {
-      console.log('Error: ' + result.message);
-    } else {
-      rest.parsers.xml(result, function(err, newData) {
-        var jobj = [];
-        var city = [];
-        var weight = [];
-        async.eachSeries(newData['result']['cities'][0]['city'], function(i, callback) {
-          console.log(i.$.id);
-          rest.get('http://kladr-api.ru/api.php?query='+ i._.replace(/\s+/g, '').toLowerCase() +'&contentType=city&withParent=1&limit=1&token=' + kladr_token + '&key=' + kladr_key).once('complete', function(kladr) {
-            if (kladr instanceof Error) {
-              console.log('Error: ' + kladr.message);
-            } else {
-              if (i._.replace(/\s+/g, '').toLowerCase() == 'москва') {
-                city.push({
-                  id: i.$.id,
-                  name: i._.replace(/\s+/g, '').toLowerCase(),
-                  kladr_name: kladr['result'][0]['name'].toLowerCase(),
-                  okato: kladr['result'][0]['okato'],
-                  kladr_regfullname: 'московская область',
-                  kladr_regname: 'московская',
-                  reg_okato: '46000000000'
-                });
-              } else if (i._.replace(/\s+/g, '').toLowerCase() == 'санкт-петербург') {
-                city.push({
-                  id: i.$.id,
-                  name: i._.replace(/\s+/g, '').toLowerCase(),
-                  kladr_name: kladr['result'][0]['name'].toLowerCase(),
-                  okato: kladr['result'][0]['okato'],
-                  kladr_regfullname: 'ленинградская область',
-                  kladr_regname: 'ленинградская',
-                  reg_okato: '41000000000'
-                });
-              } else {
-                city.push({
-                  id: i.$.id,
-                  name: i._.replace(/\s+/g, '').toLowerCase(),
-                  kladr_name: kladr['result'][0]['name'].toLowerCase(),
-                  okato: kladr['result'][0]['okato'],
-                  kladr_regfullname: kladr['result'][0]['parents'][0]['name'].toLowerCase() + ' ' + kladr['result'][0]['parents'][0]['type'].toLowerCase(),
-                  kladr_regname: kladr['result'][0]['parents'][0]['name'].toLowerCase(),
-                  reg_okato: kladr['result'][0]['parents'][0]['okato']
-                });
-              }
-              console.log('done');
-              callback();
-            }
-          });
-        }, function(err) {
-          if(err) {
-            console.log('A file failed to process');
+  var tariffs = []
+    , cities = [];
+  csv()
+  .from.path(__dirname+'/public/tariffs.csv', { delimiter: ';', escape: '"' })
+  .transform( function(row){
+    return row;
+  })
+  .on('record', function(data,index){
+    tariffs.push(data);
+  })
+  .on('end', function(count){
+    csv()
+    .from.path(__dirname+'/public/cities.csv', { delimiter: ';', escape: '"' })
+    .transform( function(row){
+      return row;
+    })
+    .on('record', function(row, index){
+      var j = {};
+      var e = [];
+      async.eachSeries(tariffs, function(i, callback) {
+        if (row[1] == 'м') {
+          j[i[0]] = new Array(parseFloat(i[2]), parseFloat(i[5]));
+          callback();
+        } else if (row[1] == 'п') {
+          j[i[0]] = new Array(parseFloat(i[1]), parseFloat(i[3]));
+          callback();
+        } else if (row[1] == 1) {
+          j[i[0]] = new Array(parseFloat(i[4]), parseFloat(i[5]));
+          callback();
+        } else if (row[1] == 2) {
+          j[i[0]] = new Array(parseFloat(i[6]), parseFloat(i[7]));
+          callback();
+        } else if (row[1] == 3) {
+          j[i[0]] = new Array(parseFloat(i[8]), parseFloat(i[9]));
+          callback();
+        } else if (row[1] == 4) {
+          j[i[0]] = new Array(parseFloat(i[10]), parseFloat(i[11]));
+          callback();
+        } else if (row[1] == 5) {
+          j[i[0]] = new Array(parseFloat(i[12]), parseFloat(i[13]));
+          callback();
+        } else if (row[1] == 6) {
+          j[i[0]] = new Array(parseFloat(i[14]), parseFloat(i[15]));
+          callback();
+        }
+      }, function(err) {
+           e = [row[0].toLowerCase(), row[1], j];
+           cities.push({
+             name: e[0],
+             weight: e[2]
+           });
+         });
+    })
+    .on('end', function(count){
+      //console.log(cities);
+      //console.log(cities[79].weight['0,1'][0]);
+      var c = [];
+      async.eachSeries(cities, function(i, callback) {
+        rest.get('http://kladr-api.ru/api.php?query='+ i.name +'&contentType=city&withParent=1&limit=1&token=' + kladr_token + '&key=' + kladr_key).once('complete', function(kladr) {
+          if (kladr instanceof Error) {
+            console.log('Error: ' + kladr.message);
           } else {
-            for (var i in newData['result']['weights'][0]['weight']) {
-              var val = newData['result']['weights'][0]['weight'][i];
-              weight.push(val);
+            if (i.name == 'москва') {
+              c.push({
+                name: i.name,
+                kladr_name: kladr['result'][0]['name'].toLowerCase(),
+                okato: kladr['result'][0]['okato'],
+                kladr_regfullname: 'московская область',
+                kladr_regname: 'московская',
+                reg_okato: '46000000000',
+                weight: i.weight
+              });
+            } else if (i.name == 'санкт-петербург') {
+              c.push({
+                name: i.name,
+                kladr_name: kladr['result'][0]['name'].toLowerCase(),
+                okato: kladr['result'][0]['okato'],
+                kladr_regfullname: 'ленинградская область',
+                kladr_regname: 'ленинградская',
+                reg_okato: '41000000000',
+                weight: i.weight
+              });
+            } else {
+              c.push({
+                name: i.name,
+                kladr_name: kladr['result'][0]['name'].toLowerCase(),
+                okato: kladr['result'][0]['okato'],
+                kladr_regfullname: kladr['result'][0]['parents'][0]['name'].toLowerCase() + ' ' + kladr['result'][0]['parents'][0]['type'].toLowerCase(),
+                kladr_regname: kladr['result'][0]['parents'][0]['name'].toLowerCase(),
+                reg_okato: kladr['result'][0]['parents'][0]['okato'],
+                weight: i.weight
+              });
             }
-            jobj.push(city);
-            jobj.push(weight);
-            fs.writeFile(__dirname + '/public/output.json', JSON.stringify(jobj), function(err) {
-              if(err) {
-                console.log(err);
-              } else {
-                console.log('The file was saved!');
-                res.send('ok');
-              }
-            });
+            console.log(' done > ' + i.name);
           }
+          callback();
         });
-      });
-    }
+      }, function(err) {
+           if(err) {
+             console.log('A file failed to process');
+           } else {
+             fs.writeFile(__dirname + '/public/output.json', JSON.stringify(c), function(err) {
+               if(err) {
+                 console.log(err);
+               } else {
+                 console.log('The file was saved!');
+                 res.send('ok');
+               }
+             });
+           }
+         });
+    })
+    .on('error', function(error){
+      console.log(error.message);
+    });
+  })
+  .on('error', function(error){
+    console.log(error.message);
   });
 });
 
@@ -212,12 +244,6 @@ app.get('/update', function(req, res){
 app.get('/', function(req, res){
   var region = req.query.region.replace(/^[а-яА-Я]{1,10}\s/g, '').toLowerCase();
   var city = req.query.city.toLowerCase();
-  var fin = ({
-    from: 61,
-    id: 0,
-    obl: 1,
-    w: 0
-  });
   console.log('Регион : ' + req.query.region + '\nГород : ' + req.query.city + '\nВес : ' + req.query.weight);
   // это на случай если вдруг будет почтовый индекс, тогда опираемся на индекс. Если его не будет, работаем опираясь на регион и город.
   if (req.query.zip != 0) {
@@ -225,18 +251,18 @@ app.get('/', function(req, res){
       if (err) throw err;
       rest.get('http://postindexapi.ru/' + req.query.zip + '.json').once('complete', function(zip) {
         if (zip.error_message) {
-          f(res, req, region, city, fin, data);
+          f(res, req, region, city, data);
         } else {
           var reg = zip.region.replace(/\s[а-яА-Я]{1,20}$/g, '').toLowerCase();
           var cit = zip.city.toLowerCase();
-          f(res, req, reg, cit, fin, data);
+          f(res, req, reg, cit, data);
         }
       });
     });
   } else {
     fs.readFile(__dirname + '/public/output.json', 'utf8', function (err, data) {
       if (err) throw err;
-      f(res, req, region, city, fin, data);
+      f(res, req, region, city, data);
     });
   }
 });

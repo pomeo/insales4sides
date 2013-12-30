@@ -10,6 +10,7 @@
     "jade": "*",
     "restler": "*",
     "xml2js": "*",
-    "async": "*"
+    "async": "*",
+    "csv": "*"
   }
 }
