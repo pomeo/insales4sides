@@ -73,7 +73,6 @@ var f = function(res, req, region, city, data) {
       res.setHeader('Content-Type', 'application/json');
       res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
     } else {
-      console.log(kladr['result'][0]);
       if (kladr['result'][0] == '') {
         console.log('Не опознан регион: ' + region);
         res.setHeader('Content-Type', 'application/json');
@@ -123,8 +122,41 @@ var f = function(res, req, region, city, data) {
   });
 };
 
+// скачиваем файлы с тарифами на доставку
+app.get('/update1', function(req, res){
+  rest.get('http://master-angel.ru/tariffs.csv').once('complete', function(result) {
+    if (result instanceof Error) {
+      console.log('Error:', result.message);
+      this.retry(5000);
+    } else {
+      fs.writeFile(__dirname + '/public/tariffs.csv', result, function(err) {
+        if(err) {
+          console.log(err);
+        } else {
+          rest.get('http://master-angel.ru/cities.csv').once('complete', function(result) {
+            if (result instanceof Error) {
+              console.log('Error:', result.message);
+              this.retry(5000);
+            } else {
+              fs.writeFile(__dirname + '/public/cities.csv', result, function(err) {
+                if(err) {
+                  console.log(err);
+                } else {
+                  fs.appendFile(__dirname + '/public/cities.csv', 'Москва;м\nСанкт-Петербург;п', function (err) {
+                    res.redirect('/update2');
+                  });
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+  });
+});
+
 // здесь мы создаём файл с данными, список городов службы доставки с номерами окато и регионами в которых они находятся. Номера окато берутся из кладра.
-app.get('/update', function(req, res){
+app.get('/update2', function(req, res){
   var tariffs = []
     , cities = [];
   csv()
@@ -179,8 +211,6 @@ app.get('/update', function(req, res){
          });
     })
     .on('end', function(count){
-      //console.log(cities);
-      //console.log(cities[79].weight['0,1'][0]);
       var c = [];
       async.eachSeries(cities, function(i, callback) {
         rest.get('http://kladr-api.ru/api.php?query='+ i.name +'&contentType=city&withParent=1&limit=1&token=' + kladr_token + '&key=' + kladr_key).once('complete', function(kladr) {
@@ -231,7 +261,7 @@ app.get('/update', function(req, res){
                  console.log(err);
                } else {
                  console.log('The file was saved!');
-                 res.send('ok');
+                 res.send(200, 'Тарифы успешно обновлены');
                }
              });
            }
