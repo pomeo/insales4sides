@@ -73,6 +73,7 @@ var f = function(res, req, region, city, data) {
       res.setHeader('Content-Type', 'application/json');
       res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
     } else {
+      console.log(kladr['result'][0]);
       if (kladr['result'][0] == '') {
         console.log('Не опознан регион: ' + region);
         res.setHeader('Content-Type', 'application/json');
@@ -108,8 +109,13 @@ var f = function(res, req, region, city, data) {
             res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
           } else {
             // возвращаем цену
-            res.setHeader('Content-Type', 'application/json');
-            res.send(req.query.callback + '({delivery_price: ' + price + '})');
+            if (price == '') {
+              res.setHeader('Content-Type', 'application/json');
+              res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
+            } else {
+              res.setHeader('Content-Type', 'application/json');
+              res.send(req.query.callback + '({delivery_price: ' + price + '})');
+            }
           }
         });
       }
