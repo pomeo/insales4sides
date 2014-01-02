@@ -291,7 +291,11 @@ app.get('/', function(req, res){
         } else {
           var reg = zip.region.replace(/\s[а-яА-Я]{1,20}$/g, '').toLowerCase();
           var cit = zip.city.toLowerCase();
-          f(res, req, reg, cit, data);
+          if (cit == '') {
+            f(res, req, reg, city, data);
+          } else {
+            f(res, req, reg, cit, data);
+          }
         }
       });
     });
