@@ -307,6 +307,12 @@ app.get('/', function(req, res){
   }
 });
 
-http.createServer(app).listen(app.get('port'), function(){
-  console.log('Express server listening on port ' + app.get('port'));
+http.createServer(app).listen(app.get('port'), '127.0.0.1', function() {
+  console.log('Express server listening on port %d in %s mode', app.get('port'), app.get('env'));
 });
+
+// server with small memory, need manual release
+setInterval(function () {
+  global.gc();
+  console.log((process.memoryUsage().rss / 1024 / 1024).toFixed(2) + 'Mb');
+}, 10000);
