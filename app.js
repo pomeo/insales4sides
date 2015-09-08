@@ -277,7 +277,8 @@ app.get('/update2', function(req, res){
 });
 
 // сюда прилетает get запрос от insales, делаем магию и отвечаем.
-app.get('/', function(req, res){
+app.get('/', function(req, res) {
+  console.dir(req.query);
   var region = req.query.region.replace(/^[а-яА-Я]{1,10}\s/g, '').toLowerCase();
   var city = req.query.city.toLowerCase();
   console.log('Регион : ' + req.query.region + '\nГород : ' + req.query.city + '\nВес : ' + req.query.weight);
