@@ -9,9 +9,6 @@ let routes = require('./routes/index');
 
 let app = express();
 
-var kladr_key = process.env.kladrkey;
-var kladr_token = process.env.kladrtoken;
-
 app.set('port', process.env.PORT || 3000);
 
 // all environments
