@@ -5,20 +5,13 @@ set :application, "m.insales.sovechkin.com"
 require           "capistrano-offroad"
 offroad_modules   "defaults", "supervisord"
 set :repository,  "git@github.com:pomeo/insales4sides.git"
-set :deploy_to,   "/home/ubuntu/projects/4sides"
-set :supervisord_start_group, "4sides"
-set :supervisord_stop_group, "4sides"
+set :supervisord_start_group, "app"
+set :supervisord_stop_group, "app"
 #========================
 #ROLES
 #========================
-role :app,        "ubuntu@#{application}"
-
-namespace :deploy do
-  desc "Change node.js port"
-  task :chg_port do
-    run "sed -i 's/3000/3600/g' #{current_path}/app.js"
-  end
-end
+set  :gateway,    "#{application}" # main server
+role :app,        "10.3.253.1"      # container
 
 namespace :deploy do
   desc "Folder permission"
@@ -27,4 +20,8 @@ namespace :deploy do
   end
 end
 
-after "deploy:create_symlink", "deploy:npm_install", "deploy:chg_port", "deploy:perm", "deploy:restart"
+after "deploy:create_symlink",
+      "deploy:npm_install",
+      "deploy:perm",
+      "deploy:cleanup",
+      "deploy:restart"
