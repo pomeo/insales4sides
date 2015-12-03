@@ -58,11 +58,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(app.get('port'), '127.0.0.1', () => {
-  debug('Express server listening on port ' + this.address().port);
+app.listen(app.get('port'), '0.0.0.0', () => {
+  debug(`Express server listening on port ${app.get('port')} in ${app.get('env')} mode`);
 });
-
-// server with small memory, need manual release
-setInterval(function () {
-  global.gc();
-}, 10000);
