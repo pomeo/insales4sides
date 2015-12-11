@@ -211,7 +211,7 @@ let combine = (input, callback) => {
   let output = [];
   async.eachSeries(input.data.cities, function(row, callbackCities) {
     async.eachSeries(input.data.tariffs, function(i, callbackTariffs) {
-      switch(row[1]) {
+      switch (row[1]) {
       case 'м':
         priceWeight[i[0]] = [parseFloat(i[2]), parseFloat(i[5])];
         setImmediate(callbackTariffs);
@@ -252,6 +252,8 @@ let combine = (input, callback) => {
         name: row[0].toLowerCase(),
         weight: priceWeight
       });
+      priceWeight = null;
+      priceWeight = {};
       setImmediate(callbackCities);
     });
   }, function(err) {
