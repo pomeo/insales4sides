@@ -275,7 +275,7 @@ let createFile = (cities, callback) => {
       }
     };
     request.get(options, (error, response, body) => {
-      switch(i.name) {
+      switch(i.name.toLowerCase()) {
       case 'москва':
         output.push({
           name: i.name,
