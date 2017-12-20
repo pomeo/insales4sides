@@ -68,13 +68,13 @@ var f = function(res, req, region, city, data) {
   }).once('complete', function(kladr) {
     if (kladr instanceof Error) {
       console.log('Error: ' + kladr.message);
-      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Type', 'application/javascript');
       res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
     } else {
       console.log(kladr);
       if (kladr['result'][0] == '') {
         console.log('Не опознан регион: ' + region);
-        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Type', 'application/javascript');
         res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
       } else {
         // идём по массиву данных из output.json и сравниваем есть ли нужный регион
@@ -97,7 +97,7 @@ var f = function(res, req, region, city, data) {
             }).once('complete', function(kladr_city) {
               if (kladr_city instanceof Error) {
                 console.log('Error: ' + kladr_city.message);
-                res.setHeader('Content-Type', 'application/json');
+                res.setHeader('Content-Type', 'application/javascript');
                 res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
               } else if (typeof kladr_city['result'][0] === 'undefined') {
                 callback();
@@ -114,15 +114,15 @@ var f = function(res, req, region, city, data) {
         }, function(err) {
           if (err) {
             console.log(err);
-            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Content-Type', 'application/javascript');
             res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
           } else {
             // возвращаем цену
             if (price == '') {
-              res.setHeader('Content-Type', 'application/json');
+              res.setHeader('Content-Type', 'application/javascript');
               res.send(req.query.callback + '({error: \'Current carrier is not available!\'})');
             } else {
-              res.setHeader('Content-Type', 'application/json');
+              res.setHeader('Content-Type', 'application/javascript');
               res.send(req.query.callback + '({delivery_price: ' + price + '})');
             }
           }
