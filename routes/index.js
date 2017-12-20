@@ -169,19 +169,20 @@ router.get('/', function(req, res) {
                     if (err) {
 
                     } else {
-                      rest.get('http://postindexapi.ru/' + req.query.zip + '.json').once('complete', function(zip) {
-                        if (zip.error_message) {
-                          f(res, req, region, city, data);
-                        } else {
-                          var reg = zip.region.replace(/\s[а-яА-Я]{1,20}$/g, '').toLowerCase();
-                          var cit = zip.city.toLowerCase();
-                          if (cit == '') {
-                            f(res, req, reg, city, data);
-                          } else {
-                            f(res, req, reg, cit, data);
-                          }
-                        }
-                      });
+                      //rest.get('http://postindexapi.ru/' + req.query.zip + '.json').once('complete', function(zip) {
+                      //  if (zip.error_message) {
+                      //    f(res, req, region, city, data);
+                      //  } else {
+                      //    var reg = zip.region.replace(/\s[а-яА-Я]{1,20}$/g, '').toLowerCase();
+                      //    var cit = zip.city.toLowerCase();
+                      //    if (cit == '') {
+                      //      f(res, req, reg, city, data);
+                      //    } else {
+                      //      f(res, req, reg, cit, data);
+                      //    }
+                      //  }
+                      //});
+			f(res, req, region, city, data);
                     }
       });
     } else {
