@@ -1,4 +1,4 @@
-set :application, "m.insales.sovechkin.com"
+set :application, "4sides.salesapps.ru"
 #========================
 #CONFIG
 #========================
@@ -11,7 +11,7 @@ set :supervisord_stop_group, "app"
 #ROLES
 #========================
 set  :gateway,    "#{application}" # main server
-role :app,        "10.3.253.1"      # container
+role :app,        "10.3.10.80"      # container
 
 namespace :deploy do
   desc "Folder permission"
