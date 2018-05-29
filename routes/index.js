@@ -6,13 +6,13 @@ const request  = require('request');
 const util     = require('util');
 const rest     = require('restler');
 const _        = require('lodash');
-const io       = require('redis.io');
+const io       = require('kue');
 const jobs     = io.createQueue({
   prefix: '4redis',
   disableSearch: true,
   jobEvents: false,
   redis: {
-    host: process.env.redis
+    host: process.env.REDIS
   }
 });
 const async    = require('async');
@@ -62,8 +62,8 @@ var f = function(res, req, region, city, data) {
       contentType: 'region',
       withParent: '1',
       limit: '1',
-      token: process.env.kladrtoken,
-      key: process.env.kladrkey
+      token: process.env.KLADRTOKEN,
+      key: process.env.KLADRKEY
     }
   }).once('complete', function(kladr) {
     if (kladr instanceof Error) {
@@ -91,8 +91,8 @@ var f = function(res, req, region, city, data) {
                 contentType: 'city',
                 withParent: '1',
                 limit: '1',
-                token: process.env.kladrtoken,
-                key: process.env.kladrkey
+                token: process.env.KLADRTOKEN,
+                key: process.env.KLADRKEY
               }
             }).once('complete', function(kladr_city) {
               if (kladr_city instanceof Error) {
@@ -273,8 +273,8 @@ let createFile = (cities, callback) => {
         contentType: 'city',
         withParent: '1',
         limit: '1',
-        token: process.env.kladrtoken,
-        key: process.env.kladrkey
+        token: process.env.KLADRTOKEN,
+        key: process.env.KLADRKEY
       }
     };
     request.get(options, (error, response, body) => {
